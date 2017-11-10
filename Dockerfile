@@ -8,4 +8,4 @@ RUN mkdir -p /app
 ADD vnu.jar /app/vnu.jar
 
 # RUN command
-CMD ["java", "-cp", "/app/vnu.jar", "nu.validator.servlet.Main", "8080"]
+CMD ["java", "-cp", "/app/vnu.jar", "nu.validator.servlet.Main", "80"]

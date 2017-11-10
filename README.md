@@ -2,8 +2,7 @@
 
 [Passmarked](http://passmarked.com) makes use of the vnu validator from w3c. To handle our processing a small docker image using Alpine OS was made to have a quick and scalable service running that our tests can hit.
 
-W3C hosts a public version for anyone interested over at [validator.w3.org](http://validator.w3.org).
-
+W3C hosts a public version for anyone interested over at [validator.w3.org](http://validator.w3.org). We also host our hosted version open to the public at [vnu.passmarked.com](https://vnu.passmarked.com), please consider other users when using.
 
 # Building
 
@@ -17,9 +16,9 @@ docker build --tag=w3c/vnu .
 
 Replace *w3c/vnu* as you see fit.
 
-### What is base.yaml .. ?
+### What is .gitlab-ci.yml .. ?
 
-Feel free to ignore, this is more for internal build systems to identify the module that the image produced from the repo falls in.
+Feel free to ignore, our build systems run on Gitlab and this is how we test/deploy. Feel free to browse around use for your own deployments ;)
 
 # Running
 

@@ -1,0 +1,80 @@
+# start from the base docker image
+image: docker:latest
+
+# we'll be using docker-in-docker 
+services:
+  - docker:dind
+
+# in addition to the normal test, build, deploy stages we add a release stage
+# we also build first so that we can test the build - then we only have to build once
+stages:
+  - build
+  - test
+  - release
+  - deploy
+
+variables:
+  # SQL vars are used when the testing mysql service is created
+  DOCKER_DRIVER: overlay
+
+# log into the docker registry using tokens in our ENV
+before_script:
+  - docker login -u gitlab-ci-token -p $CI_BUILD_TOKEN $CI_REGISTRY
+
+build:
+  stage: build
+  environment: production
+  script: 
+    - docker build -f Dockerfile -t $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA .
+    - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
+  only:
+    - master
+
+# use our build to run unit tests
+test:
+  stage: test
+  environment: production
+  # use mysql service for our unit tests
+  services:
+    - docker:dind
+  script:
+    - docker pull $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
+    # - docker run $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA nginx -t
+  only:
+    - master
+
+# the master branch will be released as :latest
+release: 
+  environment: production
+  stage: release
+  script:
+    - apk add --update ca-certificates openssl python python-dev py-pip build-base
+    - update-ca-certificates
+    - wget https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-sdk-179.0.0-linux-x86_64.tar.gz
+    - tar -xf google-cloud-sdk-179.0.0-linux-x86_64.tar.gz
+    - echo $GCLOUD_SERVICE_KEY > key.json
+    - google-cloud-sdk/bin/gcloud auth activate-service-account --key-file key.json
+    - docker pull $CI_REGISTRY_IMAGE:$CI_BUILD_REF
+    - docker tag $CI_REGISTRY_IMAGE:$CI_BUILD_REF $DOCKER_REGISTRY_BASE/$CI_PROJECT_NAME:$CI_BUILD_REF
+    - google-cloud-sdk/bin/gcloud docker -- push $DOCKER_REGISTRY_BASE/$CI_PROJECT_NAME:$CI_BUILD_REF
+    - docker tag $CI_REGISTRY_IMAGE:$CI_BUILD_REF $DOCKER_REGISTRY_BASE/$CI_PROJECT_NAME:latest
+    - google-cloud-sdk/bin/gcloud docker -- push $DOCKER_REGISTRY_BASE/$CI_PROJECT_NAME:latest
+  only:
+    - master
+
+# the master branch will be released as :latest
+deploy: 
+  environment: production
+  stage: deploy
+  script:
+    - apk add --update ca-certificates openssl python python-dev py-pip build-base
+    - update-ca-certificates
+    - wget https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-sdk-179.0.0-linux-x86_64.tar.gz
+    - tar -xf google-cloud-sdk-179.0.0-linux-x86_64.tar.gz
+    - echo $GCLOUD_SERVICE_KEY > key.json
+    - google-cloud-sdk/bin/gcloud auth activate-service-account --key-file key.json
+    - google-cloud-sdk/bin/gcloud components install kubectl --quiet
+    - google-cloud-sdk/bin/gcloud --quiet container clusters get-credentials $KUBE_CLUSTER_NAME_PM1 --zone $KUBE_CLUSTER_NAME_PM1_ZONE --project $GCLOUD_PROJECT
+    - google-cloud-sdk/bin/kubectl patch deployment vnu -p '{"spec":{"template":{"metadata":{"labels":{"version":"'"$CI_BUILD_REF"'"}}}}}'
+  only:
+    - master
