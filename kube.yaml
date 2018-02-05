@@ -3,6 +3,12 @@ kind: Deployment
 metadata:
   name: vnu
 spec:
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  minReadySeconds: 60
   selector:
     matchLabels:
       app: vnu
@@ -15,6 +21,11 @@ spec:
       containers:
       - name: vnu
         image: gcr.io/passmarked/vnu:latest
+        resources:
+          requests:
+            memory: "64Mi"
+          limits:
+            memory: "512Mi"
         ports:
         - containerPort: 80
         env:
@@ -34,3 +45,17 @@ spec:
     protocol: TCP
   selector:
     app: vnu
+---
+apiVersion: autoscaling/v1
+kind: HorizontalPodAutoscaler
+metadata:
+  name: vnu
+  namespace: default
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1beta1
+    kind: Deployment
+    name: vnu
+  minReplicas: 1
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 20
